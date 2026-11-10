@@ -1,0 +1,40 @@
+name: Weekly Outreach Dashboard
+
+on:
+  schedule:
+    - cron: '0 23 * * 0'    # Sunday 23:00 UTC
+  workflow_dispatch:
+
+jobs:
+  run:
+    # Scheduled runs are off until the repository variable ENABLE_SCHEDULE is 'true',
+    # so a fresh fork or an unconfigured copy never runs (or fails) on its own.
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_SCHEDULE == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Read-only: restores the logs the sender jobs saved to the Actions cache
+      - name: Restore outreach state
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: outreach-state-${{ github.run_id }}
+          restore-keys: |
+            outreach-state-
+
+      - name: Send weekly outreach dashboard
+        run: node src/dashboard.js
+        env:
+          GMAIL_USER:         ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_NOTIFY:       ${{ secrets.EMAIL_NOTIFY }}
+          COMPANY_NAME:       ${{ vars.COMPANY_NAME }}
+          DAILY_SEND_RATE:    ${{ vars.DAILY_SEND_RATE }}
